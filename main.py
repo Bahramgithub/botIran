@@ -258,16 +258,16 @@ def main() -> None:
         states={
             CHOOSE_TEMPLATE: [CallbackQueryHandler(on_template_chosen, pattern=r"^tpl:")],
             ASK_NAME: [
-                CommandHandler("skip", skip_name),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_name),
+                CommandHandler("skip", skip_name),
             ],
             ASK_LOCATION: [
-                CommandHandler("skip", skip_location),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_location),
+                CommandHandler("skip", skip_location),
             ],
             ASK_CONCERN: [
-                CommandHandler("skip", skip_concern),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_concern),
+                CommandHandler("skip", skip_concern),
             ],
             SHOW_OUTPUT: [CallbackQueryHandler(restart, pattern=r"^restart$")],
         },

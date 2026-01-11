@@ -251,9 +251,6 @@ def main() -> None:
     if not token:
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN environment variable.")
 
-    # Use webhook for production, polling for development
-    port = int(os.environ.get("PORT", 8000))
-    
     app = Application.builder().token(token).build()
 
     conv = ConversationHandler(
@@ -275,21 +272,13 @@ def main() -> None:
             SHOW_OUTPUT: [CallbackQueryHandler(restart, pattern=r"^restart$")],
         },
         fallbacks=[],
+        per_message=False,
     )
 
     app.add_handler(conv)
     
-    if os.getenv("RENDER"):
-        # Production: use webhook
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            webhook_url=f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{token}",
-            url_path=token,
-        )
-    else:
-        # Development: use polling
-        app.run_polling()
+    # Use polling for now to avoid webhook complexity
+    app.run_polling()
 
 
 if __name__ == "__main__":

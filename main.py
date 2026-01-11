@@ -15,100 +15,143 @@ from telegram.ext import (
 )
 
 # --- Conversation states ---
-CHOOSE_TEMPLATE, ASK_NAME, ASK_LOCATION, ASK_CONCERN, SHOW_OUTPUT = range(5)
+CHOOSE_ENTITY, CHOOSE_TEMPLATE, ASK_NAME, ASK_LOCATION, ASK_CONCERN, SHOW_OUTPUT = range(6)
+
+ENTITIES = {
+    "pm": {
+        "label": "Prime Minister",
+        "contact": "Contact form: https://www.pm.gov.au/contact",
+        "emails": None,
+    },
+    "parliament": {
+        "label": "Parliament of Australia", 
+        "contact": "Contact form: https://www.aph.gov.au/Help/Contact_Us",
+        "emails": None,
+    },
+    "foreign_minister": {
+        "label": "Minister for Foreign Affairs",
+        "contact": "Contact form: https://www.foreignminister.gov.au/contact-foreign-minister", 
+        "emails": None,
+    },
+    "dfat": {
+        "label": "Department of Foreign Affairs",
+        "contact": None,
+        "emails": ["media@dfat.gov.au", "legalisations.australia@dfat.gov.au", "lara.nassau@dfat.gov.au"],
+    },
+    "oni": {
+        "label": "Office of National Intelligence",
+        "contact": None,
+        "emails": ["info@igis.gov.au", "hotline@nationalsecurity.gov.au"],
+    },
+}
 
 TEMPLATES = {
-    "very_short": {
-        "label": "Very short",
-        "subject": "Request: Human Rights-Based Review of Australia's Engagement with Iran",
-    },
-    "formal": {
-        "label": "Formal",
-        "subject": "Request for Australia to Review Political Legitimacy Afforded to the Islamic Republic of Iran",
-    },
-    "legal": {
-        "label": "More legal",
-        "subject": "Request for Values-Based Action on Iran: Human Rights, Accountability, and Engagement with Civil Society",
-    },
+    "short": {"label": "Short"},
+    "formal": {"label": "Formal"},
+    "detailed": {"label": "Detailed"},
 }
 
 @dataclass
 class SessionData:
-    template_key: str = "formal"
+    entity_key: str = ""
+    template_key: str = ""
     name: str = ""
     location: str = ""
     concern: str = ""
-    subject: str = ""
-    body: str = ""
 
+def build_subject(entity_key: str) -> str:
+    subjects = {
+        "pm": "Urgent: Human Rights Concerns Regarding Iran",
+        "parliament": "Parliamentary Inquiry Request: Australia's Iran Policy",
+        "foreign_minister": "Foreign Policy Review: Australia's Engagement with Iran",
+        "dfat": "Request: Human Rights-Based Review of Australia's Engagement with Iran",
+        "oni": "Intelligence Assessment Request: Iran Human Rights Situation",
+    }
+    return subjects.get(entity_key, "Human Rights Concerns Regarding Iran")
 
-def build_email_body(template_key: str, name: str, location: str, concern: str) -> str:
-    name_line = f"{name}" if name else ""
-    signoff = name_line if name_line else "A concerned member of the public"
-    loc_line = f"{location}" if location else ""
-
+def build_email_body(entity_key: str, template_key: str, name: str, location: str, concern: str) -> str:
+    signoff = name if name else "A concerned Australian citizen"
+    loc_line = f"\n{location}" if location else ""
+    
     concern_sentence = ""
     if concern.strip():
         concern_clean = concern.strip().replace("\n", " ")
         concern_sentence = f"I am particularly concerned about: {concern_clean}\n\n"
 
-    if template_key == "very_short":
-        return (
-            "Dear Sir or Madam,\n\n"
-            "I am writing to urge the Australian Government to take a principled, human-rights-based stance in response to "
-            "credible reports of serious and ongoing abuses in Iran.\n\n"
-            f"{concern_sentence}"
-            "I respectfully ask Australia to review the basis of its diplomatic engagement with the Islamic Republic, "
-            "and to engage with credible democratic voices and Iranian civil society in a manner consistent with human rights and accountability.\n\n"
-            "Thank you for your attention.\n\n"
-            f"Yours sincerely,\n{signoff}"
-            + (f"\n{loc_line}" if loc_line else "")
-        )
+    # Entity-specific greetings and content
+    greetings = {
+        "pm": "Dear Prime Minister,",
+        "parliament": "Dear Members of Parliament,", 
+        "foreign_minister": "Dear Minister,",
+        "dfat": "Dear Sir or Madam,",
+        "oni": "Dear Intelligence Officials,",
+    }
+    
+    greeting = greetings.get(entity_key, "Dear Sir or Madam,")
+    
+    if template_key == "short":
+        return f"""{greeting}
 
-    if template_key == "legal":
-        return (
-            "Dear Sir or Madam,\n\n"
-            "I write to request that the Australian Government adopt a values-based and human-rights-centred approach regarding Iran. "
-            "Credible reporting by international bodies and human rights organisations has raised serious concerns about the suppression of "
-            "fundamental freedoms and due process.\n\n"
-            f"{concern_sentence}"
-            "In light of these concerns, I respectfully ask Australia to:\n"
-            "1) Review the basis and public framing of diplomatic engagement with the Islamic Republic in view of persistent human rights violations; and\n"
-            "2) Engage in structured dialogue with credible democratic opposition figures and representatives of Iranian civil society, consistent with "
-            "Australia's commitment to human rights, accountability, and the principles of the UN Charter.\n\n"
-            "Thank you for considering this request.\n\n"
-            f"Yours sincerely,\n{signoff}"
-            + (f"\n{loc_line}" if loc_line else "")
-        )
+I am writing to express serious concerns about human rights violations in Iran and urge a principled Australian response.
 
-    return (
-        "Dear Sir or Madam,\n\n"
-        "I am writing to urge the Australian Government to take a principled stance in response to credible reports of ongoing human rights "
-        "violations in Iran.\n\n"
-        f"{concern_sentence}"
-        "I respectfully ask the Government to review the political legitimacy it affords the Islamic Republic through diplomatic engagement, "
-        "and to engage with credible democratic opposition figures and representatives of Iranian civil society as part of a human-rights-based foreign policy.\n\n"
-        "Such steps would affirm that sustained repression cannot coexist with full political legitimacy.\n\n"
-        "Thank you for your attention.\n\n"
-        f"Yours sincerely,\n{signoff}"
-        + (f"\n{loc_line}" if loc_line else "")
-    )
+{concern_sentence}I respectfully request that Australia review its diplomatic engagement with the Islamic Republic and engage with credible Iranian civil society representatives.
 
+Thank you for your attention.
 
-def make_template_keyboard() -> InlineKeyboardMarkup:
+Yours sincerely,
+{signoff}{loc_line}"""
+
+    elif template_key == "detailed":
+        return f"""{greeting}
+
+I write to request that the Australian Government adopt a comprehensive, human-rights-centred approach regarding Iran. Credible reporting by international bodies has documented serious concerns about the suppression of fundamental freedoms and due process.
+
+{concern_sentence}In light of these concerns, I respectfully ask Australia to:
+1) Review the basis of diplomatic engagement with the Islamic Republic in view of persistent human rights violations;
+2) Engage in structured dialogue with credible democratic opposition figures and Iranian civil society representatives;
+3) Support accountability measures consistent with Australia's commitment to human rights and the UN Charter.
+
+Thank you for considering this important matter.
+
+Yours sincerely,
+{signoff}{loc_line}"""
+
+    # Default "formal" template
+    return f"""{greeting}
+
+I am writing to urge the Australian Government to take a principled stance in response to credible reports of ongoing human rights violations in Iran.
+
+{concern_sentence}I respectfully ask the Government to review the political legitimacy it affords the Islamic Republic through diplomatic engagement, and to engage with credible democratic opposition figures and representatives of Iranian civil society as part of a human-rights-based foreign policy.
+
+Such steps would affirm that sustained repression cannot coexist with full political legitimacy.
+
+Thank you for your attention.
+
+Yours sincerely,
+{signoff}{loc_line}"""
+
+def make_entity_keyboard() -> InlineKeyboardMarkup:
     buttons = [
-        [InlineKeyboardButton(TEMPLATES["very_short"]["label"], callback_data="tpl:very_short")],
-        [InlineKeyboardButton(TEMPLATES["formal"]["label"], callback_data="tpl:formal")],
-        [InlineKeyboardButton(TEMPLATES["legal"]["label"], callback_data="tpl:legal")],
+        [InlineKeyboardButton(ENTITIES["pm"]["label"], callback_data="entity:pm")],
+        [InlineKeyboardButton(ENTITIES["parliament"]["label"], callback_data="entity:parliament")],
+        [InlineKeyboardButton(ENTITIES["foreign_minister"]["label"], callback_data="entity:foreign_minister")],
+        [InlineKeyboardButton(ENTITIES["dfat"]["label"], callback_data="entity:dfat")],
+        [InlineKeyboardButton(ENTITIES["oni"]["label"], callback_data="entity:oni")],
     ]
     return InlineKeyboardMarkup(buttons)
 
+def make_template_keyboard() -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(TEMPLATES["short"]["label"], callback_data="tpl:short")],
+        [InlineKeyboardButton(TEMPLATES["formal"]["label"], callback_data="tpl:formal")],
+        [InlineKeyboardButton(TEMPLATES["detailed"]["label"], callback_data="tpl:detailed")],
+    ]
+    return InlineKeyboardMarkup(buttons)
 
 def ensure_session(context: ContextTypes.DEFAULT_TYPE) -> SessionData:
     if "session" not in context.user_data:
         context.user_data["session"] = SessionData()
     return context.user_data["session"]
-
 
 async def handle_start_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip().lower()
@@ -116,87 +159,72 @@ async def handle_start_text(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return await start(update, context)
     return ConversationHandler.END
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ensure_session(context)
     await update.message.reply_text(
-        "Hi! I can generate a short, rights-based email you can send to the Australian Government.\n\n"
-        "Choose a template:",
+        "Hi! I can help you contact Australian Government entities about human rights concerns regarding Iran.\n\n"
+        "Choose who you want to contact:",
+        reply_markup=make_entity_keyboard(),
+    )
+    return CHOOSE_ENTITY
+
+async def on_entity_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    session = ensure_session(context)
+    entity_key = query.data.split(":", 1)[1]
+    session.entity_key = entity_key
+
+    await query.edit_message_text(
+        f"Entity selected: {ENTITIES[entity_key]['label']}\n\n"
+        "Choose message style:",
         reply_markup=make_template_keyboard(),
     )
     return CHOOSE_TEMPLATE
-
 
 async def on_template_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
     session = ensure_session(context)
-    tpl_key = query.data.split(":", 1)[1]
-    if tpl_key not in TEMPLATES:
-        tpl_key = "formal"
-    session.template_key = tpl_key
+    template_key = query.data.split(":", 1)[1]
+    session.template_key = template_key
 
     await query.edit_message_text(
-        f"Template selected: {TEMPLATES[tpl_key]['label']}\n\n"
-        "What's your name? (Optional — reply with your name, or type /skip)"
+        f"Style selected: {TEMPLATES[template_key]['label']}\n\n"
+        "What's your name? (Optional — reply with your name, or type skip)"
     )
     return ASK_NAME
-
-
-async def skip_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    session = ensure_session(context)
-    session.name = ""
-    await update.message.reply_text("Your city/state? (Optional — e.g., Sydney, NSW. Or type /skip)")
-    return ASK_LOCATION
-
 
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
     text = update.message.text.strip()
     
-    # Allow both "skip" and "/skip"
     if text.lower() in ["skip", "/skip"]:
         session.name = ""
     else:
         session.name = text[:80]
     
-    await update.message.reply_text("Your city/state? (Optional — e.g., Sydney, NSW. Or type /skip)")
+    await update.message.reply_text("Your city/state? (Optional — e.g., Sydney, NSW. Or type skip)")
     return ASK_LOCATION
-
-
-async def skip_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    session = ensure_session(context)
-    session.location = ""
-    await update.message.reply_text("One-line concern to include? (Optional — e.g., 'use of lethal force against peaceful protesters'. Or type /skip)")
-    return ASK_CONCERN
-
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
     text = update.message.text.strip()
     
-    # Allow both "skip" and "/skip"
     if text.lower() in ["skip", "/skip"]:
         session.location = ""
     else:
         session.location = text[:80]
     
-    await update.message.reply_text("One-line concern to include? (Optional — or type /skip)")
+    await update.message.reply_text("One-line concern to include? (Optional — or type skip)")
     return ASK_CONCERN
-
-
-async def skip_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    session = ensure_session(context)
-    session.concern = ""
-    return await show_output(update, context)
-
 
 async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
     text = update.message.text.strip()
     
-    # Allow both "skip" and "/skip"
     if text.lower() in ["skip", "/skip"]:
         session.concern = ""
     else:
@@ -204,36 +232,28 @@ async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     
     return await show_output(update, context)
 
-
-def make_mailto(subject: str, body: str) -> str:
-    recipients = "legalisations.australia@dfat.gov.au,media@dfat.gov.au,lara.nassau@dfat.gov.au"
-    qs = urllib.parse.urlencode({
-        "subject": subject,
-        "body": body,
-    })
-    return f"mailto:{recipients}?{qs}"
-
-
 async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
-    subject = TEMPLATES[session.template_key]["subject"]
-    body = build_email_body(session.template_key, session.name, session.location, session.concern)
-
-    session.subject = subject
-    session.body = body
+    entity = ENTITIES[session.entity_key]
+    subject = build_subject(session.entity_key)
+    body = build_email_body(session.entity_key, session.template_key, session.name, session.location, session.concern)
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
     ])
 
-    recipients = "legalisations.australia@dfat.gov.au\nmedia@dfat.gov.au\nlara.nassau@dfat.gov.au"
+    if entity["emails"]:
+        recipients = "\n".join(entity["emails"])
+        contact_info = f"**To:**\n`{recipients}`"
+    else:
+        contact_info = f"**Contact:**\n{entity['contact']}"
 
     text = (
-        "✅ Here's your email draft.\n\n"
-        f"**To:**\n`{recipients}`\n\n"
+        f"✅ Here's your message for {entity['label']}.\n\n"
+        f"{contact_info}\n\n"
         f"**Subject:**\n`{subject}`\n\n"
-        f"**Body:**\n`{body}`\n\n"
-        "Copy the text above and paste into your email app."
+        f"**Message:**\n`{body}`\n\n"
+        "Copy the text above and paste into your email app or contact form."
     )
 
     if update.callback_query:
@@ -243,14 +263,12 @@ async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     return SHOW_OUTPUT
 
-
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     context.user_data["session"] = SessionData()
-    await query.edit_message_text("Choose a template:", reply_markup=make_template_keyboard())
-    return CHOOSE_TEMPLATE
-
+    await query.edit_message_text("Choose who you want to contact:", reply_markup=make_entity_keyboard())
+    return CHOOSE_ENTITY
 
 def main() -> None:
     load_dotenv()
@@ -267,19 +285,11 @@ def main() -> None:
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_start_text),
         ],
         states={
+            CHOOSE_ENTITY: [CallbackQueryHandler(on_entity_chosen, pattern=r"^entity:")],
             CHOOSE_TEMPLATE: [CallbackQueryHandler(on_template_chosen, pattern=r"^tpl:")],
-            ASK_NAME: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_name),
-                CommandHandler("skip", skip_name),
-            ],
-            ASK_LOCATION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_location),
-                CommandHandler("skip", skip_location),
-            ],
-            ASK_CONCERN: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_concern),
-                CommandHandler("skip", skip_concern),
-            ],
+            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+            ASK_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_location)],
+            ASK_CONCERN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_concern)],
             SHOW_OUTPUT: [CallbackQueryHandler(restart, pattern=r"^restart$")],
         },
         fallbacks=[],
@@ -287,10 +297,7 @@ def main() -> None:
     )
 
     app.add_handler(conv)
-    
-    # Use polling for now to avoid webhook complexity
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()

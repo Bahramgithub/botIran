@@ -146,7 +146,14 @@ async def skip_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
-    session.name = update.message.text.strip()[:80]
+    text = update.message.text.strip()
+    
+    # Allow both "skip" and "/skip"
+    if text.lower() in ["skip", "/skip"]:
+        session.name = ""
+    else:
+        session.name = text[:80]
+    
     await update.message.reply_text("Your city/state? (Optional — e.g., Sydney, NSW. Or type /skip)")
     return ASK_LOCATION
 
@@ -160,7 +167,14 @@ async def skip_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
-    session.location = update.message.text.strip()[:80]
+    text = update.message.text.strip()
+    
+    # Allow both "skip" and "/skip"
+    if text.lower() in ["skip", "/skip"]:
+        session.location = ""
+    else:
+        session.location = text[:80]
+    
     await update.message.reply_text("One-line concern to include? (Optional — or type /skip)")
     return ASK_CONCERN
 
@@ -173,7 +187,14 @@ async def skip_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
-    session.concern = update.message.text.strip()[:240]
+    text = update.message.text.strip()
+    
+    # Allow both "skip" and "/skip"
+    if text.lower() in ["skip", "/skip"]:
+        session.concern = ""
+    else:
+        session.concern = text[:240]
+    
     return await show_output(update, context)
 
 

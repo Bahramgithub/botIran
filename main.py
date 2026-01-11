@@ -110,6 +110,13 @@ def ensure_session(context: ContextTypes.DEFAULT_TYPE) -> SessionData:
     return context.user_data["session"]
 
 
+async def handle_start_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip().lower()
+    if text in ["start", "/start"]:
+        return await start(update, context)
+    return ConversationHandler.END
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ensure_session(context)
     await update.message.reply_text(
@@ -251,7 +258,10 @@ def main() -> None:
     app = Application.builder().token(token).build()
 
     conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[
+            CommandHandler("start", start),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_start_text),
+        ],
         states={
             CHOOSE_TEMPLATE: [CallbackQueryHandler(on_template_chosen, pattern=r"^tpl:")],
             ASK_NAME: [

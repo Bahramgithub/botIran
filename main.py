@@ -222,18 +222,18 @@ async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     session.subject = subject
     session.body = body
 
-    mailto_link = make_mailto(subject, body)
-
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📧 Send Email", url=mailto_link)],
         [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
     ])
 
+    recipients = "legalisations.australia@dfat.gov.au\nmedia@dfat.gov.au\nlara.nassau@dfat.gov.au"
+
     text = (
         "✅ Here's your email draft.\n\n"
+        f"**To:**\n`{recipients}`\n\n"
         f"**Subject:**\n`{subject}`\n\n"
-        f"`{body}`\n\n"
-        "Tap 'Send Email' to open your email app."
+        f"**Body:**\n`{body}`\n\n"
+        "Copy the text above and paste into your email app."
     )
 
     if update.callback_query:

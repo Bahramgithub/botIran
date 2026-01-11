@@ -278,6 +278,11 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.edit_message_text("Choose who you want to contact:", reply_markup=make_entity_keyboard())
     return CHOOSE_ENTITY
 
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Cancelled. Type 'start' to begin again.")
+    return ConversationHandler.END
+
+
 def main() -> None:
     load_dotenv()
     
@@ -288,10 +293,7 @@ def main() -> None:
     app = Application.builder().token(token).build()
 
     conv = ConversationHandler(
-        entry_points=[
-            CommandHandler("start", start),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_start_text),
-        ],
+        entry_points=[CommandHandler("start", start)],
         states={
             CHOOSE_ENTITY: [CallbackQueryHandler(on_entity_chosen, pattern=r"^entity:")],
             CHOOSE_TEMPLATE: [CallbackQueryHandler(on_template_chosen, pattern=r"^tpl:")],
@@ -300,17 +302,16 @@ def main() -> None:
             ASK_CONCERN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_concern)],
             SHOW_OUTPUT: [CallbackQueryHandler(restart, pattern=r"^restart$")],
         },
-        fallbacks=[CommandHandler("start", start)],
-        per_message=True,
+        fallbacks=[CommandHandler("cancel", cancel)],
+        per_chat=True,
+        per_user=True,
+        allow_reentry=True,
     )
 
     app.add_handler(conv)
     
-    # Add a general message handler for messages outside conversation
-    async def handle_general(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("Type 'start' or '/start' to begin.")
-    
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_general))
+    # Add handler for messages outside conversation
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_start_text))
     
     app.run_polling(drop_pending_updates=True)
 

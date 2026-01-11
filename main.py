@@ -1,6 +1,7 @@
 import os
 import urllib.parse
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
 from telegram import (
     Update,
@@ -23,7 +24,7 @@ CHOOSE_TEMPLATE, ASK_NAME, ASK_LOCATION, ASK_CONCERN, SHOW_OUTPUT = range(5)
 TEMPLATES = {
     "very_short": {
         "label": "Very short",
-        "subject": "Request: Human Rights-Based Review of Australia’s Engagement with Iran",
+        "subject": "Request: Human Rights-Based Review of Australia's Engagement with Iran",
     },
     "formal": {
         "label": "Formal",
@@ -41,20 +42,17 @@ class SessionData:
     name: str = ""
     location: str = ""
     concern: str = ""
-    # store last generated output for convenience
     subject: str = ""
     body: str = ""
 
 
 def build_email_body(template_key: str, name: str, location: str, concern: str) -> str:
-    # Keep content general + rights-based. Avoid operational / incitement content.
     name_line = f"{name}" if name else ""
     signoff = name_line if name_line else "A concerned member of the public"
     loc_line = f"{location}" if location else ""
 
     concern_sentence = ""
     if concern.strip():
-        # sanitize to a single sentence-ish
         concern_clean = concern.strip().replace("\n", " ")
         concern_sentence = f"I am particularly concerned about: {concern_clean}\n\n"
 
@@ -81,13 +79,12 @@ def build_email_body(template_key: str, name: str, location: str, concern: str) 
             "In light of these concerns, I respectfully ask Australia to:\n"
             "1) Review the basis and public framing of diplomatic engagement with the Islamic Republic in view of persistent human rights violations; and\n"
             "2) Engage in structured dialogue with credible democratic opposition figures and representatives of Iranian civil society, consistent with "
-            "Australia’s commitment to human rights, accountability, and the principles of the UN Charter.\n\n"
+            "Australia's commitment to human rights, accountability, and the principles of the UN Charter.\n\n"
             "Thank you for considering this request.\n\n"
             f"Yours sincerely,\n{signoff}"
             + (f"\n{loc_line}" if loc_line else "")
         )
 
-    # "formal" default
     return (
         "Dear Sir or Madam,\n\n"
         "I am writing to urge the Australian Government to take a principled stance in response to credible reports of ongoing human rights "
@@ -139,13 +136,13 @@ async def on_template_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await query.edit_message_text(
         f"Template selected: {TEMPLATES[tpl_key]['label']}\n\n"
-        "What’s your name? (Optional — reply with your name, or type /skip)"
+        "What's your name? (Optional — reply with your name, or type /skip)"
     )
     return ASK_NAME
 
 
-async def skip_name(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
-    session = ensure_session(_)
+async def skip_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    session = ensure_session(context)
     session.name = ""
     await update.message.reply_text("Your city/state? (Optional — e.g., Sydney, NSW. Or type /skip)")
     return ASK_LOCATION
@@ -158,8 +155,8 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ASK_LOCATION
 
 
-async def skip_location(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
-    session = ensure_session(_)
+async def skip_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    session = ensure_session(context)
     session.location = ""
     await update.message.reply_text("One-line concern to include? (Optional — e.g., 'use of lethal force against peaceful protesters'. Or type /skip)")
     return ASK_CONCERN
@@ -185,13 +182,10 @@ async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 
 def make_mailto(subject: str, body: str, to_addr: str = "") -> str:
-    # Recipient intentionally left blank by default; user can paste the correct address.
-    qs = urllib.parse.urlencode(
-        {
-            "subject": subject,
-            "body": body,
-        }
-    )
+    qs = urllib.parse.urlencode({
+        "subject": subject,
+        "body": body,
+    })
     return f"mailto:{to_addr}?{qs}"
 
 
@@ -205,21 +199,18 @@ async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     mailto_link = make_mailto(subject, body)
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("📧 Open email draft (mailto)", url=mailto_link)],
-            [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
-        ]
-    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📧 Open email draft (mailto)", url=mailto_link)],
+        [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
+    ])
 
     text = (
-        "✅ Here’s your email draft.\n\n"
+        "✅ Here's your email draft.\n\n"
         f"**Subject:**\n{subject}\n\n"
         f"**Body:**\n{body}\n\n"
         "Tip: Long-press to copy the Subject or Body."
     )
 
-    # Send as Markdown, but keep it simple
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
     else:
@@ -236,59 +227,9 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return CHOOSE_TEMPLATE
 
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Cancelled. Type /start to begin again.")
-    return ConversationHandler.END
-
-
 def main() -> None:
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise RuntimeError("Missing TELEGRAM_BOT_TOKEN environment variable.")
-
-    app = Application.builder().token(token).build()
-
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            CHOOSE_TEMPLATE: [CallbackQueryHandler(on_template_chosen, pattern=r"^tpl:")],
-            ASK_NAME: [
-                CommandHandler("skip", skip_name),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_name),
-            ],
-            ASK_LOCATION: [
-                CommandHandler("skip", skip_location),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_location),
-            ],
-            ASK_CONCERN: [
-                CommandHandler("skip", skip_concern),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_concern),
-            ],
-            SHOW_OUTPUT: [
-                CallbackQueryHandler(restart, pattern=r"^restart$"),
-                CommandHandler("start", start),
-            ],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=True,
-    )
-
-    app.add_handler(conv)
-    app.run_polling(close_loop=False)
-
-
-if __name__ == "__main__":
-    main()
-
-async def restart(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    _.user_data["session"] = SessionData()
-    await query.edit_message_text("Choose a template:", reply_markup=make_template_keyboard())
-    return CHOOSE_TEMPLATE
-
-
-def main() -> None:
+    load_dotenv()
+    
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN environment variable.")

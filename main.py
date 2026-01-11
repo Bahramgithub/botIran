@@ -214,18 +214,15 @@ async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     session.subject = subject
     session.body = body
 
-    mailto_link = make_mailto(subject, body)
-
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📧 Open email draft (mailto)", url=mailto_link)],
         [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
     ])
 
     text = (
         "✅ Here's your email draft.\n\n"
-        f"**Subject:**\n{subject}\n\n"
-        f"**Body:**\n{body}\n\n"
-        "Tip: Long-press to copy the Subject or Body."
+        f"**Subject:**\n`{subject}`\n\n"
+        f"**Body:**\n`{body}`\n\n"
+        "Tap and hold to copy the text above."
     )
 
     if update.callback_query:

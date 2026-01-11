@@ -296,7 +296,7 @@ def main() -> None:
             SHOW_OUTPUT: [CallbackQueryHandler(restart, pattern=r"^restart$")],
         },
         fallbacks=[],
-        per_message=False,
+        per_message=True,
     )
 
     app.add_handler(conv)

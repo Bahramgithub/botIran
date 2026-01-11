@@ -1,7 +1,10 @@
 import os
 import urllib.parse
+import logging
 from dataclasses import dataclass
 from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO)
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (

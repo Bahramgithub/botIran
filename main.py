@@ -205,12 +205,13 @@ async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     return await show_output(update, context)
 
 
-def make_mailto(subject: str, body: str, to_addr: str = "") -> str:
+def make_mailto(subject: str, body: str) -> str:
+    recipients = "legalisations.australia@dfat.gov.au,media@dfat.gov.au,lara.nassau@dfat.gov.au"
     qs = urllib.parse.urlencode({
         "subject": subject,
         "body": body,
     })
-    return f"mailto:{to_addr}?{qs}"
+    return f"mailto:{recipients}?{qs}"
 
 
 async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -221,15 +222,18 @@ async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     session.subject = subject
     session.body = body
 
+    mailto_link = make_mailto(subject, body)
+
     keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📧 Send Email", url=mailto_link)],
         [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
     ])
 
     text = (
         "✅ Here's your email draft.\n\n"
         f"**Subject:**\n`{subject}`\n\n"
-        f"**Body:**\n`{body}`\n\n"
-        "Tap and hold to copy the text above."
+        f"`{body}`\n\n"
+        "Tap 'Send Email' to open your email app."
     )
 
     if update.callback_query:

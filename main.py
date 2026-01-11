@@ -157,18 +157,23 @@ def ensure_session(context: ContextTypes.DEFAULT_TYPE) -> SessionData:
     return context.user_data["session"]
 
 async def handle_start_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    logging.info(f"Received message: {update.message.text}")
     text = update.message.text.strip().lower()
     if text in ["start", "/start"]:
+        logging.info("Starting conversation")
         return await start(update, context)
+    logging.info("Message not recognized as start")
     return ConversationHandler.END
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    logging.info("Start function called")
     ensure_session(context)
     await update.message.reply_text(
         "Hi! I can help you contact Australian Government entities about human rights concerns regarding Iran.\n\n"
         "Choose who you want to contact:",
         reply_markup=make_entity_keyboard(),
     )
+    logging.info("Start message sent")
     return CHOOSE_ENTITY
 
 async def on_entity_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

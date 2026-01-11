@@ -295,11 +295,18 @@ def main() -> None:
             ASK_CONCERN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_concern)],
             SHOW_OUTPUT: [CallbackQueryHandler(restart, pattern=r"^restart$")],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start)],
         per_message=True,
     )
 
     app.add_handler(conv)
+    
+    # Add a general message handler for messages outside conversation
+    async def handle_general(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_text("Type 'start' or '/start' to begin.")
+    
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_general))
+    
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":

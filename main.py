@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -177,23 +178,28 @@ def ensure_session(context: ContextTypes.DEFAULT_TYPE) -> SessionData:
     return context.user_data["session"]
 
 async def handle_start_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logging.info(f"Received message: {update.message.text}")
+    user_id = update.effective_user.id if update.effective_user else None
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    logger.info(f"User interaction: user_id={user_id}, chat_id={chat_id}, text={update.effective_message.text if update.effective_message else None}")
+    
+    logger.info(f"Received message: {update.message.text}")
     text = update.message.text.strip().lower()
     if text in ["start", "/start"]:
-        logging.info("Starting conversation")
+        logger.info("Starting conversation")
         return await start(update, context)
-    logging.info("Message not recognized as start")
+    logger.info("Message not recognized as start")
     return ConversationHandler.END
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logging.info("Start function called")
+    user_id = update.effective_user.id if update.effective_user else None
+    logger.info(f"Start function called for user_id={user_id}")
     ensure_session(context)
     await update.message.reply_text(
         "Hi! I can help you contact Australian Government entities about human rights concerns regarding Iran.\n\n"
         "Choose who you want to contact:",
         reply_markup=make_entity_keyboard(),
     )
-    logging.info("Start message sent")
+    logger.info("Start message sent")
     return CHOOSE_ENTITY
 
 async def on_entity_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -204,7 +210,8 @@ async def on_entity_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     entity_key = query.data.split(":", 1)[1]
     session.entity_key = entity_key
 
-    await query.edit_message_text(
+    # Send new message instead of editing
+    await update.effective_chat.send_message(
         f"Entity selected: {ENTITIES[entity_key]['label']}\n\n"
         "Choose message style:",
         reply_markup=make_template_keyboard(),
@@ -219,7 +226,8 @@ async def on_template_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
     template_key = query.data.split(":", 1)[1]
     session.template_key = template_key
 
-    await query.edit_message_text(
+    # Send new message instead of editing
+    await update.effective_chat.send_message(
         f"Style selected: {TEMPLATES[template_key]['label']}\n\n"
         "What's your name? (Optional — reply with your name, or type skip)"
     )
@@ -234,7 +242,23 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     else:
         session.name = text[:80]
     
-    await update.message.reply_text("Your city/state? (Optional — e.g., Sydney, NSW. Or type skip)")
+    try:
+        entity_label = ENTITIES[session.entity_key]['label']
+        template_label = TEMPLATES[session.template_key]['label']
+    except KeyError as e:
+        logger.error(f"Invalid session state: {e}")
+        await update.message.reply_text("Session error. Please start over with /start")
+        return ConversationHandler.END
+    name_info = f"Name: {session.name}" if session.name else "Name: (skipped)"
+    
+    await update.message.reply_text(
+        f"📋 **Current Selection:**\n"
+        f"Entity: {entity_label}\n"
+        f"Style: {template_label}\n"
+        f"{name_info}\n\n"
+        "Your city/state? (Optional — e.g., Sydney, NSW. Or type skip)",
+        parse_mode="Markdown"
+    )
     return ASK_LOCATION
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -246,7 +270,25 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     else:
         session.location = text[:80]
     
-    await update.message.reply_text("One-line concern to include? (Optional — or type skip)")
+    try:
+        entity_label = ENTITIES[session.entity_key]['label']
+        template_label = TEMPLATES[session.template_key]['label']
+    except KeyError as e:
+        logger.error(f"Invalid session state: {e}")
+        await update.message.reply_text("Session error. Please start over with /start")
+        return ConversationHandler.END
+    name_info = f"Name: {session.name}" if session.name else "Name: (skipped)"
+    location_info = f"Location: {session.location}" if session.location else "Location: (skipped)"
+    
+    await update.message.reply_text(
+        f"📋 **Current Selection:**\n"
+        f"Entity: {entity_label}\n"
+        f"Style: {template_label}\n"
+        f"{name_info}\n"
+        f"{location_info}\n\n"
+        "One-line concern to include? (Optional — or type skip)",
+        parse_mode="Markdown"
+    )
     return ASK_CONCERN
 
 async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -262,9 +304,20 @@ async def get_concern(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     session = ensure_session(context)
-    entity = ENTITIES[session.entity_key]
-    subject = build_subject(session.entity_key)
-    body = build_email_body(session.entity_key, session.template_key, session.name, session.location, session.concern)
+    user_id = update.effective_user.id if update.effective_user else None
+    logger.info(f"Message generated for user_id={user_id}, entity={session.entity_key}, template={session.template_key}")
+    
+    try:
+        entity = ENTITIES[session.entity_key]
+        subject = build_subject(session.entity_key)
+        body = build_email_body(session.entity_key, session.template_key, session.name, session.location, session.concern)
+    except KeyError as e:
+        logger.error(f"Invalid session state: {e}")
+        await update.message.reply_text("Session error. Please start over with /start")
+        return ConversationHandler.END
+
+    logger.info(f"Generated subject: {subject}")
+    logger.info(f"Generated body length: {len(body)}")
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔁 Start over", callback_data="restart")],
@@ -284,10 +337,21 @@ async def show_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         "Copy the text above and paste into your email app or contact form."
     )
 
-    if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
-    else:
-        await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    logger.info(f"Sending message with length: {len(text)}")
+
+    try:
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        logger.info("Message sent successfully")
+    except Exception as e:
+        logger.error(f"Error sending message: {e}")
+        # Try without markdown if it fails
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=keyboard)
+        else:
+            await update.message.reply_text(text, reply_markup=keyboard)
 
     return SHOW_OUTPUT
 
@@ -295,7 +359,12 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     context.user_data["session"] = SessionData()
-    await query.edit_message_text("Choose who you want to contact:", reply_markup=make_entity_keyboard())
+    
+    # Send new message instead of editing
+    await update.effective_chat.send_message(
+        "Choose who you want to contact:", 
+        reply_markup=make_entity_keyboard()
+    )
     return CHOOSE_ENTITY
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

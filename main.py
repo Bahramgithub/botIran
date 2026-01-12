@@ -52,6 +52,11 @@ ENTITIES = {
         "contact": None,
         "emails": ["SydneyACS@state.gov"],
     },
+    "opera_house": {
+        "label": "Request for lighting the Opera House in solidarity with Iran",
+        "contact": "Petition: https://www.petitions.com/request_for_consideration_lighting_the_opera_house_in_solidarity_with_the_people_of_iran?utm_source=web_share",
+        "emails": None,
+    },
 }
 
 TEMPLATES = {
@@ -76,6 +81,7 @@ def build_subject(entity_key: str) -> str:
         "dfat": "Request: Human Rights-Based Review of Australia's Engagement with Iran",
         "oni": "Intelligence Assessment Request: Iran Human Rights Situation",
         "us_embassy": "Urgent: Request for US Intervention on Iran Human Rights Crisis",
+        "opera_house": "Request: Light Opera House in Solidarity with Iran",
     }
     return subjects.get(entity_key, "Human Rights Concerns Regarding Iran")
 
@@ -96,6 +102,7 @@ def build_email_body(entity_key: str, template_key: str, name: str, location: st
         "dfat": "Dear Sir or Madam,",
         "oni": "Dear Intelligence Officials,",
         "us_embassy": "Dear US Embassy Officials,",
+        "opera_house": "Dear Sydney Opera House,",
     }
     
     greeting = greetings.get(entity_key, "Dear Sir or Madam,")
@@ -109,6 +116,20 @@ I am writing to urgently request US government intervention regarding the mass k
 {concern_sentence}I respectfully urge the United States to take immediate action to stop these atrocities and hold the Iranian regime accountable for crimes against humanity.
 
 Thank you for your urgent attention.
+
+Yours sincerely,
+{signoff}{loc_line}"""
+        
+        if entity_key == "opera_house":
+            return f"""{greeting}
+
+I am writing to request that the Sydney Opera House be lit in solidarity with the Iranian people fighting for freedom and human rights.
+
+{concern_sentence}This symbolic gesture would show Australia's support for those courageously standing up against oppression.
+
+Please consider this petition: https://www.petitions.com/request_for_consideration_lighting_the_opera_house_in_solidarity_with_the_people_of_iran?utm_source=web_share
+
+Thank you.
 
 Yours sincerely,
 {signoff}{loc_line}"""
@@ -161,6 +182,7 @@ def make_entity_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(ENTITIES["dfat"]["label"], callback_data="entity:dfat")],
         [InlineKeyboardButton(ENTITIES["oni"]["label"], callback_data="entity:oni")],
         [InlineKeyboardButton(ENTITIES["us_embassy"]["label"], callback_data="entity:us_embassy")],
+        [InlineKeyboardButton(ENTITIES["opera_house"]["label"], callback_data="entity:opera_house")],
     ]
     return InlineKeyboardMarkup(buttons)
 

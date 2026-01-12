@@ -46,6 +46,11 @@ ENTITIES = {
         "contact": None,
         "emails": ["info@igis.gov.au", "hotline@nationalsecurity.gov.au"],
     },
+    "us_embassy": {
+        "label": "US Embassy in Australia",
+        "contact": None,
+        "emails": ["SydneyACS@state.gov"],
+    },
 }
 
 TEMPLATES = {
@@ -69,6 +74,7 @@ def build_subject(entity_key: str) -> str:
         "foreign_minister": "Foreign Policy Review: Australia's Engagement with Iran",
         "dfat": "Request: Human Rights-Based Review of Australia's Engagement with Iran",
         "oni": "Intelligence Assessment Request: Iran Human Rights Situation",
+        "us_embassy": "Urgent: Request for US Intervention on Iran Human Rights Crisis",
     }
     return subjects.get(entity_key, "Human Rights Concerns Regarding Iran")
 
@@ -88,11 +94,24 @@ def build_email_body(entity_key: str, template_key: str, name: str, location: st
         "foreign_minister": "Dear Minister,",
         "dfat": "Dear Sir or Madam,",
         "oni": "Dear Intelligence Officials,",
+        "us_embassy": "Dear US Embassy Officials,",
     }
     
     greeting = greetings.get(entity_key, "Dear Sir or Madam,")
     
     if template_key == "short":
+        if entity_key == "us_embassy":
+            return f"""{greeting}
+
+I am writing to urgently request US government intervention regarding the mass killing of protesters in Iran by the Islamic Republic regime.
+
+{concern_sentence}I respectfully urge the United States to take immediate action to stop these atrocities and hold the Iranian regime accountable for crimes against humanity.
+
+Thank you for your urgent attention.
+
+Yours sincerely,
+{signoff}{loc_line}"""
+        
         return f"""{greeting}
 
 I am writing to express serious concerns about human rights violations in Iran and urge a principled Australian response.
@@ -140,6 +159,7 @@ def make_entity_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(ENTITIES["foreign_minister"]["label"], callback_data="entity:foreign_minister")],
         [InlineKeyboardButton(ENTITIES["dfat"]["label"], callback_data="entity:dfat")],
         [InlineKeyboardButton(ENTITIES["oni"]["label"], callback_data="entity:oni")],
+        [InlineKeyboardButton(ENTITIES["us_embassy"]["label"], callback_data="entity:us_embassy")],
     ]
     return InlineKeyboardMarkup(buttons)
 
